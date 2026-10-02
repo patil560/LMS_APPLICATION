@@ -15,91 +15,138 @@ import { AuthenticatedUser, AdminRoute, ProtectedRoute } from "./components/Prot
 import PurchaseCourseProtectedRoute from "./components/PurchaseCourseProtectedRoute.jsx"
 import { ThemeProvider } from "@/components/ThemeProvider.jsx"
 
-// Admin pages, the dashboard charts and the video player are loaded only when needed,
-// so students download a much smaller first bundle.
+// =====================================================
+// LAZY LOADING - Admin pages & heavy components
+// =====================================================
+// These are only downloaded when student/admin actually needs them
 const Sidebar = lazy(() => import("./pages/admin/sidebar.jsx"));
 const CourseTable = lazy(() => import("./pages/admin/course/coursetable"));
 const Dashboard = lazy(() => import("./pages/admin/dashboard"));
 const AddCourse = lazy(() => import("./pages/admin/course/AddCourse"));
-const EditCourse = lazy(() => import("./pages/admin/course/Editcourse").then((m) => ({ default: m.EditCourse })));
+const EditCourse = lazy(() => 
+  import("./pages/admin/course/Editcourse").then((m) => ({ default: m.EditCourse }))
+);
 const CreateLecture = lazy(() => import("./pages/admin/lecture/createLecture"));
 const EditLecture = lazy(() => import("./pages/admin/lecture/editlecture"));
 const CourseProgress = lazy(() => import("./pages/student/courseprogress"));
 
-const withSuspense = (node) => <Suspense fallback={<LoadingSpinner />}>{node}</Suspense>;
+// =====================================================
+// HELPER: Wrap components with Suspense
+// =====================================================
+// This shows loading spinner while lazy components are downloading
+const withSuspense = (node) => (
+  <Suspense fallback={<LoadingSpinner />}>
+    {node}
+  </Suspense>
+);
 
+// =====================================================
+// ROUTER CONFIGURATION (PRODUCTION READY)
+// =====================================================
 const appRouter = createBrowserRouter([
+  // =====================================================
+  // ROUTE 1: LOGIN PAGE (TOP LEVEL - NOT in MainLayout)
+  // =====================================================
+  // Unauthenticated users see ONLY this page
+  // No header, no nav, no layout - just login form
+  {
+    path: "/login",
+    element: (
+      <AuthenticatedUser>
+        <Login />
+      </AuthenticatedUser>
+    ),
+    errorElement: <RootError />,
+  },
+
+  // =====================================================
+  // ROUTE 2: MAIN APP (All other routes)
+  // =====================================================
+  // Protected at parent level - checks auth BEFORE MainLayout loads
   {
     path: "/",
-    element: <MainLayout />,
+    element: (
+      // This ProtectedRoute wrapper is the KEY CHANGE
+      // It checks authentication BEFORE rendering MainLayout
+      // If not authenticated → redirects to /login
+      // If authenticated → renders MainLayout + child routes
+      <ProtectedRoute>
+        <MainLayout />
+      </ProtectedRoute>
+    ),
     errorElement: <RootError />,
     children: [
+      // =====================================================
+      // HOME PAGE (/)
+      // =====================================================
+      // Only accessible if user is logged in
       {
         index: true,
         element: (
           <>
             <HeroSection />
-            <Courses />
+            <Courses /> {/* Database fetch - only happens if logged in */}
           </>
         ),
       },
-      {
-        path: "login",
-        element: (
-          <AuthenticatedUser>
-            <Login />
-          </AuthenticatedUser>
-        ),
-      },
+
+      // =====================================================
+      // MY LEARNING PAGE (/my-learning)
+      // =====================================================
       {
         path: "my-learning",
-        element: (
-          <ProtectedRoute>
-            <MyLearning />
-          </ProtectedRoute>
-        ),
+        element: withSuspense(<MyLearning />),
       },
+
+      // =====================================================
+      // WISHLIST PAGE (/wishlist)
+      // =====================================================
       {
         path: "wishlist",
-        element: (
-          <ProtectedRoute><Wishlist /></ProtectedRoute>
-        ),
+        element: withSuspense(<Wishlist />),
       },
+
+      // =====================================================
+      // PROFILE PAGE (/profile)
+      // =====================================================
       {
         path: "profile",
-        element: (
-          <ProtectedRoute>
-            <Profile />
-          </ProtectedRoute>
-        ),
+        element: withSuspense(<Profile />),
       },
+
+      // =====================================================
+      // SEARCH PAGE (/course/search)
+      // =====================================================
       {
         path: "course/search",
-        element: (
-          <ProtectedRoute>
-            <SearchPage />
-          </ProtectedRoute>
-        ),
+        element: withSuspense(<SearchPage />),
       },
+
+      // =====================================================
+      // COURSE DETAIL PAGE (/course-detail/:courseId)
+      // =====================================================
       {
         path: "course-detail/:courseId",
-        element: (
-          <ProtectedRoute>
-            <CourseDetail />
-          </ProtectedRoute>
-        ),
+        element: withSuspense(<CourseDetail />),
       },
+
+      // =====================================================
+      // COURSE PROGRESS PAGE (/course-progress/:courseId)
+      // =====================================================
+      // Extra protection: Only users who purchased this course can view
       {
         path: "course-progress/:courseId",
         element: (
-          <ProtectedRoute>
-            <PurchaseCourseProtectedRoute>
+          <PurchaseCourseProtectedRoute>
             {withSuspense(<CourseProgress />)}
           </PurchaseCourseProtectedRoute>
-          </ProtectedRoute>
         ),
       },
-      // admin routes start here
+
+      // =====================================================
+      // ADMIN ROUTES (/admin/*)
+      // =====================================================
+      // Only admin/teachers can access
       {
         path: "admin",
         element: (
@@ -108,26 +155,37 @@ const appRouter = createBrowserRouter([
           </AdminRoute>
         ),
         children: [
+          // Admin Dashboard
           {
             path: "dashboard",
             element: withSuspense(<Dashboard />),
           },
+
+          // Course Management Table
           {
             path: "course",
             element: withSuspense(<CourseTable />),
           },
+
+          // Create New Course
           {
             path: "course/create",
             element: withSuspense(<AddCourse />),
           },
+
+          // Edit Existing Course
           {
             path: "course/:courseId",
             element: withSuspense(<EditCourse />),
           },
+
+          // Create Lecture
           {
             path: "course/:courseId/lecture",
             element: withSuspense(<CreateLecture />),
           },
+
+          // Edit Lecture
           {
             path: "course/:courseId/lecture/:lectureId",
             element: withSuspense(<EditLecture />),
@@ -138,13 +196,14 @@ const appRouter = createBrowserRouter([
   },
 ]);
 
+// =====================================================
+// APP COMPONENT
+// =====================================================
 function App() {
   return (
     <main>
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-
-      <RouterProvider router={appRouter} />
-      
+        <RouterProvider router={appRouter} />
       </ThemeProvider>
     </main>
   );
