@@ -5,9 +5,18 @@ import connectDB from "./database/dbconnect.js";
 
 await connectDB(); // do not accept traffic until the database is reachable
 
-const server = app.listen(env.port, () => {
-  console.log(`app is running on port ${env.port} (${env.nodeEnv}) pid ${process.pid}`);
+
+const PORT = process.env.PORT || env.port || 5000;
+
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(
+    app is running on port ${PORT} (${env.nodeEnv}) pid ${process.pid}
+  );
 });
+
+// const server = app.listen(env.port, () => {
+//   console.log(`app is running on port ${env.port} (${env.nodeEnv}) pid ${process.pid}`);
+// });
 
 // Longer than typical load-balancer idle timeouts (AWS ALB = 60s) to avoid random 502s.
 server.keepAliveTimeout = 65_000;
