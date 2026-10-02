@@ -10,10 +10,9 @@ const PORT = process.env.PORT || env.port || 5000;
 
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(
-    app is running on port ${PORT} (${env.nodeEnv}) pid ${process.pid}
+    `app is running on port ${PORT} (${env.nodeEnv}) pid ${process.pid}`
   );
 });
-
 // const server = app.listen(env.port, () => {
 //   console.log(`app is running on port ${env.port} (${env.nodeEnv}) pid ${process.pid}`);
 // });
